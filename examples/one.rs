@@ -1,7 +1,7 @@
 use enumflags2::BitFlags;
-use http_data::{DataKinds, HeaderData, Headers, Method, MethodData, RequestData};
+use http_data::{Connection, DataKinds, HeaderData, Headers, Method, MethodData, Request};
 
-use std::collections::HashMap;
+use std::{collections::HashMap, net::SocketAddr};
 
 pub struct ReqWrap<'m> {
     method: &'m str,
@@ -23,8 +23,25 @@ impl Default for ReqWrap<'_> {
         }
     }
 }
+impl Connection<SocketAddr> for &ReqWrap<'_> {
+    fn client_socket(&self) -> &SocketAddr {
+        todo!()
+    }
+    fn server_socket(&self) -> &SocketAddr {
+        todo!()
+    }
+    fn tls_version(&self) -> Option<http_data::tls::ProtocolVersion> {
+        todo!()
+    }
+}
 
-impl RequestData for ReqWrap<'_> {
+impl Request for ReqWrap<'_> {
+    fn http_protocol(&self) -> Option<http_data::http::Protocol> {
+        todo!()
+    }
+    fn time_received(&self) -> Option<std::time::SystemTime> {
+        todo!()
+    }
     fn method_providers(&self) -> BitFlags<DataKinds> {
         DataKinds::Str | DataKinds::Bytes
     }
@@ -88,7 +105,7 @@ impl Method<[u8]> for ReqWrap<'_> {
 }
 
 fn main() {
-    use http_data::{DataKinds, HeaderData, MethodData, RequestData as _};
+    use http_data::{DataKinds, HeaderData, MethodData, Request as _};
 
     let mut req = ReqWrap::default();
     req.set_header("Content-Type", "application/json");

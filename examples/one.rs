@@ -1,5 +1,7 @@
 use enumflags2::BitFlags;
-use http_data::{Connection, DataKinds, HeaderData, Headers, Method, MethodData, Request};
+use http_data::{
+    Connection, DataKinds, HeaderData, Headers, Method, MethodData, RequestDataProvider,
+};
 
 use std::{collections::HashMap, net::SocketAddr};
 
@@ -35,7 +37,7 @@ impl Connection<SocketAddr> for &ReqWrap<'_> {
     }
 }
 
-impl Request for ReqWrap<'_> {
+impl RequestDataProvider for ReqWrap<'_> {
     fn http_protocol(&self) -> Option<http_data::http::Protocol> {
         todo!()
     }
@@ -72,6 +74,14 @@ impl Request for ReqWrap<'_> {
             _ => None,
         }
     }
+
+    fn uri_providers(&self) -> BitFlags<DataKinds> {
+        todo!()
+    }
+
+    fn provide_uri<'s>(&'s self, _dk: DataKinds) -> Option<http_data::UriData<'s>> {
+        todo!()
+    }
 }
 impl Headers<str, str> for ReqWrap<'_> {
     fn headers<'s>(&'s self) -> impl Iterator<Item = (&'s str, &'s str)>
@@ -105,7 +115,7 @@ impl Method<[u8]> for ReqWrap<'_> {
 }
 
 fn main() {
-    use http_data::{DataKinds, HeaderData, MethodData, Request as _};
+    use http_data::{DataKinds, HeaderData, MethodData, RequestDataProvider as _};
 
     let mut req = ReqWrap::default();
     req.set_header("Content-Type", "application/json");

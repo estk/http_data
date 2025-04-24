@@ -60,6 +60,7 @@ pub enum DataItem<'a, P> {
 }
 
 pub type SocketData<'a> = DataItem<'a, net::SocketAddr>;
+pub type UriData<'a> = DataItem<'a, ::http::Uri>;
 pub type MethodData<'a> = DataItem<'a, ::http::Method>;
 pub type HeaderNameData<'a> = DataItem<'a, ::http::HeaderName>;
 pub type HeaderValueData<'a> = DataItem<'a, ::http::HeaderValue>;
@@ -70,30 +71,61 @@ pub enum HeaderData<'a> {
     Parsed(Box<dyn Iterator<Item = (&'a ::http::HeaderName, &'a ::http::HeaderValue)> + 'a>),
 }
 
-pub trait Response {}
+pub trait ResponseDataProvider {
+    fn status(&self) -> Option<http::Status>;
+    fn timestamp(&self) -> Option<time::SystemTime>;
 
-pub trait Request {
+    fn headers_providers(&self) -> BitFlags<DataKinds>;
+
+    fn provide_headers<'s>(&'s self, dk: DataKinds) -> Option<HeaderData<'s>>;
+}
+
+pub trait ConnectionDataProvider {
+    fn tls_version(&self) -> Option<tls::ProtocolVersion>;
+    fn is_tls(&self) -> bool;
+
+    fn socket_providers(&self) -> BitFlags<DataKinds>;
+    fn provide_sockets(&self, dk: DataKinds) -> Option<SocketData>;
+
+    fn provide_preferred_socket(&self, prefs: &DataKindPreference) -> Option<SocketData> {
+        let provided = self.socket_providers();
+        prefs.top(provided).and_then(|dk| self.provide_sockets(dk))
+    }
+}
+
+pub trait RequestDataProvider {
     fn time_received(&self) -> Option<time::SystemTime>;
     fn http_protocol(&self) -> Option<http::Protocol>;
 
     fn method_providers(&self) -> BitFlags<DataKinds>;
     fn headers_providers(&self) -> BitFlags<DataKinds>;
+    fn uri_providers(&self) -> BitFlags<DataKinds>;
 
     // I think these should be possible to auto-implement
     fn provide_method<'s>(&'s self, dk: DataKinds) -> Option<MethodData<'s>>;
+    fn provide_uri<'s>(&'s self, dk: DataKinds) -> Option<UriData<'s>>;
     fn provide_headers<'s>(&'s self, dk: DataKinds) -> Option<HeaderData<'s>>;
 
     fn provide_preferred_method(&self, prefs: &DataKindPreference) -> Option<MethodData> {
         let provided = self.method_providers();
         prefs.top(provided).and_then(|dk| self.provide_method(dk))
     }
+    fn provide_preferred_uri(&self, prefs: &DataKindPreference) -> Option<UriData> {
+        let provided = self.uri_providers();
+        prefs.top(provided).and_then(|dk| self.provide_uri(dk))
+    }
     fn provide_preferred_headers(&self, prefs: &DataKindPreference) -> Option<HeaderData> {
         let provided = self.headers_providers();
         prefs.top(provided).and_then(|dk| self.provide_headers(dk))
     }
 }
+
 pub trait Method<M: ?Sized> {
     fn method(&self) -> &M;
+}
+
+pub trait Uri<U: ?Sized> {
+    fn uri(&self) -> &U;
 }
 
 pub trait Headers<Name: ?Sized, Value: ?Sized> {
@@ -107,9 +139,22 @@ pub trait Connection<S: ?Sized> {
     fn client_socket(&self) -> &S;
     fn server_socket(&self) -> &S;
     fn tls_version(&self) -> Option<tls::ProtocolVersion>;
+    fn is_tls(&self) -> bool {
+        self.tls_version().is_some()
+    }
 }
 
 pub mod http {
+    pub struct Status(u16);
+    impl Status {
+        pub fn new(code: u16) -> Self {
+            Status(code)
+        }
+        pub fn code(&self) -> u16 {
+            self.0
+        }
+    }
+
     #[non_exhaustive]
     #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
     pub enum Protocol {

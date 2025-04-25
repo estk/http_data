@@ -89,6 +89,15 @@ pub enum HeaderData<'a> {
         Box<dyn ExactSizeIterator<Item = (&'a ::http::HeaderName, &'a ::http::HeaderValue)> + 'a>,
     ),
 }
+impl HeaderData<'_> {
+    pub fn len(&self) -> usize {
+        match self {
+            HeaderData::Str(iter) => iter.len(),
+            HeaderData::Bytes(iter) => iter.len(),
+            HeaderData::Parsed(iter) => iter.len(),
+        }
+    }
+}
 
 pub trait ResponseDataProvider {
     fn status(&self) -> Option<http::Status>;

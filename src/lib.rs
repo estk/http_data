@@ -71,21 +71,23 @@ pub type HeaderValueData<'a> = DataItem<'a, ::http::HeaderValue>;
 
 /// # Internals
 ///
-/// We need dyn dispatch for the iterator contained here since we have no idea at time of usage what the actual type may be. We "could" use three generics for each possible contained concrete iterator however it would substantially pollute the api. We would need to encode some of the Iterator Item into each usage site, see below.
+/// We need dyn dispatch for the ExactSizeIterator contained here since we have no idea at time of usage what the actual type may be. We "could" use three generics for each possible contained concrete ExactSizeIterator however it would substantially pollute the api. We would need to encode some of the ExactSizeIterator Item into each usage site, see below.
 ///
 /// ```
 /// fn provide_headers<'s, IS, IB, IP>(&'s self, dk: DataKinds) -> Option<HeaderData<'s>>
-/// where IS: Iterator<Item = (&'s str, &'s str)>,
-///       IB: Iterator<Item = (&'s [u8], &'s [u8])>,
-///       IP: Iterator<Item = (&'s ::http::HeaderName, &'s ::http::HeaderValue)>;
+/// where IS: ExactSizeIterator<Item = (&'s str, &'s str)>,
+///       IB: ExactSizeIterator<Item = (&'s [u8], &'s [u8])>,
+///       IP: ExactSizeIterator<Item = (&'s ::http::HeaderName, &'s ::http::HeaderValue)>;
 ///
 /// ```
 ///
-/// We tried to use a `& dyn Iterator<Item = (..)>` here but the issue is on implementation we will be returning a reference to an iterator created on the stack (without bending over backwards).
+/// We tried to use a `& dyn ExactSizeIterator<Item = (..)>` here but the issue is on implementation we will be returning a reference to an ExactSizeIterator created on the stack (without bending over backwards).
 pub enum HeaderData<'a> {
-    Str(Box<dyn Iterator<Item = (&'a str, &'a str)> + 'a>),
-    Bytes(Box<dyn Iterator<Item = (&'a [u8], &'a [u8])> + 'a>),
-    Parsed(Box<dyn Iterator<Item = (&'a ::http::HeaderName, &'a ::http::HeaderValue)> + 'a>),
+    Str(Box<dyn ExactSizeIterator<Item = (&'a str, &'a str)> + 'a>),
+    Bytes(Box<dyn ExactSizeIterator<Item = (&'a [u8], &'a [u8])> + 'a>),
+    Parsed(
+        Box<dyn ExactSizeIterator<Item = (&'a ::http::HeaderName, &'a ::http::HeaderValue)> + 'a>,
+    ),
 }
 
 pub trait ResponseDataProvider {
@@ -152,7 +154,7 @@ pub trait Uri<U: ?Sized> {
 }
 
 pub trait Headers<Name: ?Sized, Value: ?Sized> {
-    fn headers<'s>(&'s self) -> impl Iterator<Item = (&'s Name, &'s Value)>
+    fn headers<'s>(&'s self) -> impl ExactSizeIterator<Item = (&'s Name, &'s Value)>
     where
         Name: 's,
         Value: 's;

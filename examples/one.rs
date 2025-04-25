@@ -87,7 +87,7 @@ impl RequestDataProvider for ReqWrap<'_> {
     }
 }
 impl Headers<str, str> for ReqWrap<'_> {
-    fn headers<'s>(&'s self) -> impl Iterator<Item = (&'s str, &'s str)>
+    fn headers<'s>(&'s self) -> impl ExactSizeIterator<Item = (&'s str, &'s str)>
     where
         &'s str: 's,
     {
@@ -96,7 +96,7 @@ impl Headers<str, str> for ReqWrap<'_> {
 }
 
 impl Headers<[u8], [u8]> for ReqWrap<'_> {
-    fn headers<'s>(&'s self) -> impl Iterator<Item = (&'s [u8], &'s [u8])>
+    fn headers<'s>(&'s self) -> impl ExactSizeIterator<Item = (&'s [u8], &'s [u8])>
     where
         &'s [u8]: 's,
     {

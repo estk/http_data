@@ -8,7 +8,7 @@ use std::{collections::HashMap, net::SocketAddr};
 pub struct ReqWrap<'m> {
     method: &'m str,
     headers: HashMap<String, String>,
-    _body: String,
+    body: String,
 }
 impl ReqWrap<'_> {
     pub fn set_header(&mut self, name: &str, value: &str) {
@@ -21,7 +21,7 @@ impl Default for ReqWrap<'_> {
         ReqWrap {
             method: "GET",
             headers: HashMap::new(),
-            _body: String::new(),
+            body: String::new(),
         }
     }
 }
@@ -38,6 +38,9 @@ impl Connection<SocketAddr> for &ReqWrap<'_> {
 }
 
 impl RequestDataProvider for ReqWrap<'_> {
+    fn body(&self) -> Option<impl http_body::Body> {
+        Some(http_body_util::Full::new(self.body.as_bytes()))
+    }
     fn http_protocol(&self) -> Option<http_data::http::Protocol> {
         todo!()
     }

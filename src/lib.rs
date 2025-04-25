@@ -59,12 +59,29 @@ pub enum DataItem<'a, P> {
     Parsed(&'a P),
 }
 
-pub type SocketData<'a> = DataItem<'a, net::SocketAddr>;
+pub struct SocketData<'a> {
+    pub client: DataItem<'a, net::SocketAddr>,
+    pub server: DataItem<'a, net::SocketAddr>,
+}
+
 pub type UriData<'a> = DataItem<'a, ::http::Uri>;
 pub type MethodData<'a> = DataItem<'a, ::http::Method>;
 pub type HeaderNameData<'a> = DataItem<'a, ::http::HeaderName>;
 pub type HeaderValueData<'a> = DataItem<'a, ::http::HeaderValue>;
 
+/// # Internals
+///
+/// We need dyn dispatch for the iterator contained here since we have no idea at time of usage what the actual type may be. We "could" use three generics for each possible contained concrete iterator however it would substantially pollute the api. We would need to encode some of the Iterator Item into each usage site, see below.
+///
+/// ```
+/// fn provide_headers<'s, IS, IB, IP>(&'s self, dk: DataKinds) -> Option<HeaderData<'s>>
+/// where IS: Iterator<Item = (&'s str, &'s str)>,
+///       IB: Iterator<Item = (&'s [u8], &'s [u8])>,
+///       IP: Iterator<Item = (&'s ::http::HeaderName, &'s ::http::HeaderValue)>;
+///
+/// ```
+///
+/// We tried to use a `& dyn Iterator<Item = (..)>` here but the issue is on implementation we will be returning a reference to an iterator created on the stack (without bending over backwards).
 pub enum HeaderData<'a> {
     Str(Box<dyn Iterator<Item = (&'a str, &'a str)> + 'a>),
     Bytes(Box<dyn Iterator<Item = (&'a [u8], &'a [u8])> + 'a>),
@@ -73,11 +90,16 @@ pub enum HeaderData<'a> {
 
 pub trait ResponseDataProvider {
     fn status(&self) -> Option<http::Status>;
-    fn timestamp(&self) -> Option<time::SystemTime>;
+    fn time_sent(&self) -> Option<time::SystemTime>;
+    fn body(&self) -> Option<impl http_body::Body>;
 
     fn headers_providers(&self) -> BitFlags<DataKinds>;
 
     fn provide_headers<'s>(&'s self, dk: DataKinds) -> Option<HeaderData<'s>>;
+    fn provide_preferred_headers(&self, prefs: &DataKindPreference) -> Option<HeaderData> {
+        let provided = self.headers_providers();
+        prefs.top(provided).and_then(|dk| self.provide_headers(dk))
+    }
 }
 
 pub trait ConnectionDataProvider {
@@ -96,6 +118,7 @@ pub trait ConnectionDataProvider {
 pub trait RequestDataProvider {
     fn time_received(&self) -> Option<time::SystemTime>;
     fn http_protocol(&self) -> Option<http::Protocol>;
+    fn body(&self) -> Option<impl http_body::Body>;
 
     fn method_providers(&self) -> BitFlags<DataKinds>;
     fn headers_providers(&self) -> BitFlags<DataKinds>;

@@ -9,7 +9,7 @@ use enumflags2::BitFlags;
 pub enum DataKinds {
     Bytes = 1 << 0,
     Str = 1 << 1,
-    HttpParsed = 1 << 2,
+    Parsed = 1 << 2,
 }
 impl DataKinds {
     pub const fn count() -> usize {
@@ -22,8 +22,16 @@ pub struct DataKindPreference {
     // invariant: filled left to right
     ordering: [Option<DataKinds>; DataKinds::count()],
 }
-
 impl DataKindPreference {
+    pub const BYTES_PREF: Self =
+        Self::from_slice(&[DataKinds::Bytes, DataKinds::Str, DataKinds::Parsed]);
+
+    pub const PARSED_PREF: Self =
+        Self::from_slice(&[DataKinds::Parsed, DataKinds::Str, DataKinds::Bytes]);
+
+    pub const STR_PREF: Self =
+        Self::from_slice(&[DataKinds::Str, DataKinds::Bytes, DataKinds::Parsed]);
+
     pub const fn from_slice(ordering_slice: &[DataKinds]) -> Self {
         let mut ordering = [None; DataKinds::count()];
         let mut i = 0;

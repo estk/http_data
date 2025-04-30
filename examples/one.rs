@@ -1,11 +1,16 @@
-use enumflags2::BitFlags;
 use http_data::{
-    Connection, DataKinds, HeaderData, Headers, Method, MethodData, RequestDataProvider,
+    Connection, DataKind, DataKinds, HeaderData, Headers, Method, MethodData, RequestDataProvider,
 };
 
-use std::{collections::HashMap, net::SocketAddr};
+use std::{
+    borrow::Borrow,
+    collections::HashMap,
+    net::{IpAddr, Ipv6Addr, SocketAddr},
+};
 
 pub struct ReqWrap<'m> {
+    client: SocketAddr,
+    server: SocketAddr,
     method: &'m str,
     headers: HashMap<String, String>,
     body: String,
@@ -18,7 +23,10 @@ impl ReqWrap<'_> {
 
 impl Default for ReqWrap<'_> {
     fn default() -> Self {
+        let local = SocketAddr::new(IpAddr::V6(Ipv6Addr::new(0, 0, 0, 0, 0, 0, 0, 1)), 3000);
         ReqWrap {
+            client: local.clone(),
+            server: local.clone(),
             method: "GET",
             headers: HashMap::new(),
             body: String::new(),
@@ -26,14 +34,14 @@ impl Default for ReqWrap<'_> {
     }
 }
 impl Connection<SocketAddr> for &ReqWrap<'_> {
-    fn client_socket(&self) -> &SocketAddr {
-        todo!()
+    fn client_socket(&self) -> impl Borrow<SocketAddr> {
+        &self.client
     }
-    fn server_socket(&self) -> &SocketAddr {
-        todo!()
+    fn server_socket(&self) -> impl Borrow<SocketAddr> {
+        &self.server
     }
-    fn tls_version(&self) -> Option<http_data::tls::ProtocolVersion> {
-        todo!()
+    fn tls_version(&self) -> Option<http_data::TlsVersion> {
+        Some(http_data::TlsVersion::Unknown(0))
     }
 }
 
@@ -41,33 +49,31 @@ impl RequestDataProvider for ReqWrap<'_> {
     fn body(&self) -> Option<impl http_body::Body> {
         Some(http_body_util::Full::new(self.body.as_bytes()))
     }
-    fn http_protocol(&self) -> Option<http_data::http::Protocol> {
+    fn http_version(&self) -> Option<http_data::HttpVersion> {
         todo!()
     }
     fn time_received(&self) -> Option<std::time::SystemTime> {
         todo!()
     }
-    fn method_providers(&self) -> BitFlags<DataKinds> {
-        DataKinds::Str | DataKinds::Bytes
-    }
-    fn headers_providers(&self) -> BitFlags<DataKinds> {
-        DataKinds::Str | DataKinds::Bytes
-    }
 
-    fn provide_method(&self, dk: DataKinds) -> Option<MethodData> {
+    const URI_KINDS: DataKinds = DataKinds::from_slice(&[DataKind::Str, DataKind::Bytes]);
+    const HEADER_KINDS: DataKinds = DataKinds::from_slice(&[DataKind::Str, DataKind::Bytes]);
+    const METHOD_KINDS: DataKinds = DataKinds::from_slice(&[DataKind::Str, DataKind::Bytes]);
+
+    fn provide_method(&self, dk: DataKind) -> Option<MethodData> {
         match dk {
-            DataKinds::Str => Some(MethodData::Str(self.method)),
-            DataKinds::Bytes => Some(MethodData::Bytes(self.method.as_bytes())),
+            DataKind::Str => Some(MethodData::Str(self.method.into())),
+            DataKind::Bytes => Some(MethodData::Bytes(self.method.as_bytes().into())),
             _ => None,
         }
     }
-    fn provide_headers<'s>(&'s self, dk: DataKinds) -> Option<HeaderData<'s>> {
+    fn provide_headers<'s>(&'s self, dk: DataKind) -> Option<HeaderData<'s>> {
         match dk {
-            DataKinds::Str => {
+            DataKind::Str => {
                 let iter = self.headers.iter().map(|(k, v)| (k.as_str(), v.as_str()));
                 Some(HeaderData::Str(Box::new(iter)))
             }
-            DataKinds::Bytes => {
+            DataKind::Bytes => {
                 let iter = self
                     .headers
                     .iter()
@@ -78,66 +84,63 @@ impl RequestDataProvider for ReqWrap<'_> {
         }
     }
 
-    fn uri_providers(&self) -> BitFlags<DataKinds> {
-        todo!()
-    }
-
-    fn provide_uri<'s>(&'s self, _dk: DataKinds) -> Option<http_data::UriData<'s>> {
+    fn provide_uri<'s>(&'s self, _dk: DataKind) -> Option<http_data::UriData<'s>> {
         todo!()
     }
 }
 impl Headers<str, str> for ReqWrap<'_> {
-    fn headers<'s>(&'s self) -> impl ExactSizeIterator<Item = (&'s str, &'s str)>
+    fn headers<'s>(&'s self) -> impl Iterator<Item = (&'s str, &'s str)>
     where
         &'s str: 's,
     {
-        self.headers.iter().map(|(k, v)| (k.as_str(), v.as_str()))
+        self.headers.iter().map(|(k, v)| (k.as_ref(), v.as_ref()))
     }
 }
 
 impl Headers<[u8], [u8]> for ReqWrap<'_> {
-    fn headers<'s>(&'s self) -> impl ExactSizeIterator<Item = (&'s [u8], &'s [u8])>
+    fn headers<'s>(&'s self) -> impl Iterator<Item = (&'s [u8], &'s [u8])>
     where
         &'s [u8]: 's,
     {
         self.headers
             .iter()
-            .map(|(k, v)| (k.as_bytes(), v.as_bytes()))
+            .map(|(k, v)| (k.as_bytes().into(), v.as_bytes().into()))
     }
 }
 
 impl Method<str> for ReqWrap<'_> {
-    fn method(&self) -> &str {
-        &self.method
+    fn method(&self) -> impl Borrow<str> {
+        self.method
     }
 }
 impl Method<[u8]> for ReqWrap<'_> {
-    fn method(&self) -> &[u8] {
-        &self.method.as_bytes()
+    fn method(&self) -> impl Borrow<[u8]> {
+        self.method.as_bytes()
     }
 }
 
 fn main() {
-    use http_data::{DataKinds, HeaderData, MethodData, RequestDataProvider as _};
+    use http_data::{DataKind, HeaderData, MethodData, RequestDataProvider as _};
 
     let mut req = ReqWrap::default();
     req.set_header("Content-Type", "application/json");
 
-    let method = if let Some(MethodData::Str(m)) = req.provide_method(DataKinds::Str) {
-        m
-    } else if let Some(MethodData::Bytes(m)) = req.provide_method(DataKinds::Bytes) {
-        std::str::from_utf8(m).unwrap()
+    let method = if let Some(MethodData::Str(m)) = req.provide_method(DataKind::Str) {
+        m.to_string()
+    } else if let Some(MethodData::Bytes(m)) = req.provide_method(DataKind::Bytes) {
+        let v = m.to_vec();
+        String::from_utf8(v).unwrap()
     } else {
         panic!("Unsupported method");
     };
 
     dbg!(method);
     let mut headers: Vec<(String, String)> = vec![];
-    if let Some(HeaderData::Str(hs)) = req.provide_headers(DataKinds::Str) {
+    if let Some(HeaderData::Str(hs)) = req.provide_headers(DataKind::Str) {
         for (name, value) in hs {
             headers.push((name.to_string(), value.to_string()));
         }
-    } else if let Some(HeaderData::Bytes(hs)) = req.provide_headers(DataKinds::Bytes) {
+    } else if let Some(HeaderData::Bytes(hs)) = req.provide_headers(DataKind::Bytes) {
         for (name, value) in hs {
             let name = String::from_utf8_lossy(name).to_string();
             let value = String::from_utf8_lossy(value).to_string();

@@ -1,7 +1,7 @@
 use std::time;
 
 use crate::data_kinds::{DataKind, DataKindPreference, DataKinds};
-use crate::{HeaderData, HttpVersion, MethodData, SocketData, Status, TlsVersion, UriData};
+use crate::{HeaderData, HttpVersion, MethodData, SocketPairData, Status, TlsVersion, UriData};
 
 pub trait ResponseDataProvider {
     const HEADER_KINDS: DataKinds;
@@ -23,9 +23,9 @@ pub trait ConnectionDataProvider {
     const SOCKET_KINDS: DataKinds;
     fn tls_version(&self) -> Option<TlsVersion>;
 
-    fn provide_sockets(&self, dk: DataKind) -> Option<SocketData>;
+    fn provide_sockets(&self, dk: DataKind) -> Option<SocketPairData>;
 
-    fn provide_preferred_socket(&self, prefs: &DataKindPreference) -> Option<SocketData> {
+    fn provide_preferred_socket(&self, prefs: &DataKindPreference) -> Option<SocketPairData> {
         prefs
             .top(Self::SOCKET_KINDS)
             .and_then(|dk| self.provide_sockets(dk))

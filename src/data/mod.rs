@@ -10,11 +10,12 @@ where
     Parsed(Cow<'a, P>),
 }
 
-pub struct SocketData<'a> {
-    pub client: DataItem<'a, net::SocketAddr>,
-    pub server: DataItem<'a, net::SocketAddr>,
+pub struct SocketPairData<'a> {
+    pub client: SocketData<'a>,
+    pub server: SocketData<'a>,
 }
 
+pub type SocketData<'a> = DataItem<'a, net::SocketAddr>;
 pub type UriData<'a> = DataItem<'a, ::http::Uri>;
 pub type MethodData<'a> = DataItem<'a, ::http::Method>;
 

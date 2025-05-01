@@ -3,22 +3,36 @@ use std::borrow::Borrow;
 use crate::data::TlsVersion;
 
 pub trait Method<T: ?Sized> {
-    fn method(&self) -> impl Borrow<T>;
+    type Target<'a>: Borrow<T>
+    where
+        Self: 'a;
+
+    fn method(&self) -> Self::Target<'_>;
 }
 
 pub trait Uri<T: ?Sized> {
-    fn uri(&self) -> impl Borrow<T>;
+    type Target<'a>: Borrow<T>
+    where
+        Self: 'a;
+    fn uri(&self) -> Self::Target<'_>;
 }
 
 pub trait Headers<Name: ?Sized, Value: ?Sized> {
-    fn headers<'s>(&'s self) -> impl Iterator<Item = (&'s Name, &'s Value)>
+    type N<'n>: Borrow<Name>
     where
-        Name: ToOwned + 's,
-        Value: ToOwned + 's;
+        Self: 'n;
+
+    type V<'n>: Borrow<Value>
+    where
+        Self: 'n;
+    fn headers<'s>(&'s self) -> impl Iterator<Item = (Self::N<'s>, Self::V<'s>)>;
 }
 
 pub trait Connection<T: ?Sized> {
-    fn client_socket(&self) -> impl Borrow<T>;
-    fn server_socket(&self) -> impl Borrow<T>;
+    type Target<'a>: Borrow<T>
+    where
+        Self: 'a;
+    fn client_socket(&self) -> Self::Target<'_>;
+    fn server_socket(&self) -> Self::Target<'_>;
     fn tls_version(&self) -> Option<TlsVersion>;
 }

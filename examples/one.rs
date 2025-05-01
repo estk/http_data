@@ -3,7 +3,6 @@ use http_data::{
 };
 
 use std::{
-    borrow::Borrow,
     collections::HashMap,
     net::{IpAddr, Ipv6Addr, SocketAddr},
 };
@@ -34,15 +33,20 @@ impl Default for ReqWrap<'_> {
     }
 }
 impl Connection<SocketAddr> for &ReqWrap<'_> {
-    fn client_socket(&self) -> impl Borrow<SocketAddr> {
-        &self.client
+    fn client_socket(&self) -> Self::Target<'_> {
+        self.client
     }
-    fn server_socket(&self) -> impl Borrow<SocketAddr> {
-        &self.server
+    fn server_socket(&self) -> Self::Target<'_> {
+        self.server
     }
     fn tls_version(&self) -> Option<http_data::TlsVersion> {
         Some(http_data::TlsVersion::Unknown(0))
     }
+
+    type Target<'a>
+        = SocketAddr
+    where
+        Self: 'a;
 }
 
 impl RequestDataProvider for ReqWrap<'_> {
@@ -62,7 +66,10 @@ impl RequestDataProvider for ReqWrap<'_> {
 
     fn provide_method(&self, dk: DataKind) -> Option<MethodData> {
         match dk {
-            DataKind::Str => Some(MethodData::Str(self.method.into())),
+            DataKind::Str => {
+                let m = Method::<str>::method(self);
+                Some(MethodData::Str(m))
+            }
             DataKind::Bytes => Some(MethodData::Bytes(self.method.as_bytes().into())),
             _ => None,
         }
@@ -70,7 +77,8 @@ impl RequestDataProvider for ReqWrap<'_> {
     fn provide_headers<'s>(&'s self, dk: DataKind) -> Option<HeaderData<'s>> {
         match dk {
             DataKind::Str => {
-                let iter = self.headers.iter().map(|(k, v)| (k.as_str(), v.as_str()));
+                // let iter = self.headers.iter().map(|(k, v)| (k.as_str(), v.as_str()));
+                let iter = self.headers();
                 Some(HeaderData::Str(Box::new(iter)))
             }
             DataKind::Bytes => {
@@ -89,32 +97,46 @@ impl RequestDataProvider for ReqWrap<'_> {
     }
 }
 impl Headers<str, str> for ReqWrap<'_> {
-    fn headers<'s>(&'s self) -> impl Iterator<Item = (&'s str, &'s str)>
+    type N<'n>
+        = &'n str
     where
-        &'s str: 's,
-    {
+        Self: 'n;
+
+    type V<'n>
+        = &'n str
+    where
+        Self: 'n;
+    fn headers<'s>(&'s self) -> impl Iterator<Item = (Self::N<'s>, Self::V<'s>)> {
         self.headers.iter().map(|(k, v)| (k.as_ref(), v.as_ref()))
     }
 }
 
-impl Headers<[u8], [u8]> for ReqWrap<'_> {
-    fn headers<'s>(&'s self) -> impl Iterator<Item = (&'s [u8], &'s [u8])>
-    where
-        &'s [u8]: 's,
-    {
-        self.headers
-            .iter()
-            .map(|(k, v)| (k.as_bytes().into(), v.as_bytes().into()))
-    }
-}
+// impl Headers<[u8], [u8]> for ReqWrap<'_> {
+//     fn headers<'s>(&'s self) -> impl Iterator<Item = (&'s [u8], &'s [u8])>
+//     where
+//         &'s [u8]: 's,
+//     {
+//         self.headers
+//             .iter()
+//             .map(|(k, v)| (k.as_bytes().into(), v.as_bytes().into()))
+//     }
+// }
 
 impl Method<str> for ReqWrap<'_> {
-    fn method(&self) -> impl Borrow<str> {
+    type Target<'a>
+        = &'a str
+    where
+        Self: 'a;
+    fn method(&self) -> Self::Target<'_> {
         self.method
     }
 }
 impl Method<[u8]> for ReqWrap<'_> {
-    fn method(&self) -> impl Borrow<[u8]> {
+    type Target<'a>
+        = &'a [u8]
+    where
+        Self: 'a;
+    fn method(&self) -> Self::Target<'_> {
         self.method.as_bytes()
     }
 }
@@ -124,6 +146,9 @@ fn main() {
 
     let mut req = ReqWrap::default();
     req.set_header("Content-Type", "application/json");
+
+    let method = http_data::Method::<str>::method(&req);
+    dbg!(method);
 
     let method = if let Some(MethodData::Str(m)) = req.provide_method(DataKind::Str) {
         m.to_string()

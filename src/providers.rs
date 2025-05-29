@@ -10,7 +10,7 @@ pub trait ResponseDataProvider {
     fn time_sent(&self) -> Option<time::SystemTime>;
     fn body(&self) -> Option<impl http_body::Body>;
 
-    fn provide_headers<'s>(&'s self, dk: DataKind) -> Option<HeaderData<'s>>;
+    fn provide_headers(&self, dk: DataKind) -> Option<HeaderData<'_>>;
 
     fn provide_preferred_headers(&self, prefs: &DataKindPreference) -> Option<HeaderData> {
         prefs
@@ -42,9 +42,9 @@ pub trait RequestDataProvider {
     fn body(&self) -> Option<impl http_body::Body>;
 
     // I think these should be possible to auto-implement
-    fn provide_method<'s>(&'s self, dk: DataKind) -> Option<MethodData<'s>>;
-    fn provide_uri<'s>(&'s self, dk: DataKind) -> Option<UriData<'s>>;
-    fn provide_headers<'s>(&'s self, dk: DataKind) -> Option<HeaderData<'s>>;
+    fn provide_method(&self, dk: DataKind) -> Option<MethodData<'_>>;
+    fn provide_uri(&self, dk: DataKind) -> Option<UriData<'_>>;
+    fn provide_headers(&self, dk: DataKind) -> Option<HeaderData<'_>>;
 
     fn provide_preferred_method(&self, prefs: &DataKindPreference) -> Option<MethodData> {
         prefs

@@ -24,8 +24,8 @@ impl Default for ReqWrap<'_> {
     fn default() -> Self {
         let local = SocketAddr::new(IpAddr::V6(Ipv6Addr::new(0, 0, 0, 0, 0, 0, 0, 1)), 3000);
         ReqWrap {
-            client: local.clone(),
-            server: local.clone(),
+            client: local,
+            server: local,
             method: "GET",
             headers: HashMap::new(),
             body: String::new(),
@@ -70,11 +70,11 @@ impl RequestDataProvider for ReqWrap<'_> {
                 let m = Method::<str>::method(self);
                 Some(MethodData::Str(m))
             }
-            DataKind::Bytes => Some(MethodData::Bytes(self.method.as_bytes().into())),
+            DataKind::Bytes => Some(MethodData::Bytes(self.method.as_bytes())),
             _ => None,
         }
     }
-    fn provide_headers<'s>(&'s self, dk: DataKind) -> Option<HeaderData<'s>> {
+    fn provide_headers(&self, dk: DataKind) -> Option<HeaderData<'_>> {
         match dk {
             DataKind::Str => {
                 // let iter = self.headers.iter().map(|(k, v)| (k.as_str(), v.as_str()));
@@ -92,7 +92,7 @@ impl RequestDataProvider for ReqWrap<'_> {
         }
     }
 
-    fn provide_uri<'s>(&'s self, _dk: DataKind) -> Option<http_data::UriData<'s>> {
+    fn provide_uri(&self, _dk: DataKind) -> Option<http_data::UriData<'_>> {
         todo!()
     }
 }
@@ -106,7 +106,7 @@ impl Headers<str, str> for ReqWrap<'_> {
         = &'n str
     where
         Self: 'n;
-    fn headers<'s>(&'s self) -> impl Iterator<Item = (Self::N<'s>, Self::V<'s>)> {
+    fn headers(&self) -> impl Iterator<Item = (Self::N<'_>, Self::V<'_>)> {
         self.headers.iter().map(|(k, v)| (k.as_ref(), v.as_ref()))
     }
 }

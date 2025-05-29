@@ -25,7 +25,7 @@ pub trait Headers<Name: ?Sized, Value: ?Sized> {
     type V<'n>: Borrow<Value>
     where
         Self: 'n;
-    fn headers<'s>(&'s self) -> impl Iterator<Item = (Self::N<'s>, Self::V<'s>)>;
+    fn headers(&self) -> impl Iterator<Item = (Self::N<'_>, Self::V<'_>)>;
 }
 
 pub trait Connection<T: ?Sized> {

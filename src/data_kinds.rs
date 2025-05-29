@@ -5,7 +5,7 @@ use enumflags2::BitFlags;
 // should this have an emergent ordering or should it be configurable by the user/implementer
 #[enumflags2::bitflags]
 #[repr(u8)]
-#[derive(Copy, Clone, PartialEq)]
+#[derive(Copy, Clone, PartialEq, Debug)]
 pub enum DataKind {
     Bytes = 1 << 0,
     Str = 1 << 1,
@@ -65,13 +65,15 @@ impl DataKindPreference {
         Self { ordering }
     }
 
+    /// Returns the top preference that is contained in the provided data kinds.
+    /// Note: The body is a bit ugly to work around lack of loops in const contexts.
     pub const fn top(&self, provided: DataKinds) -> Option<DataKind> {
         let mut i = 0;
         while i < self.ordering.len() {
             if let Some(item) = self.ordering[i] {
                 let bf_item =
                     BitFlags::<_, u8>::from_bits_truncate_c(item as u8, BitFlags::CONST_TOKEN);
-                let contained = provided.0.intersection_c(bf_item).bits_c() == 0;
+                let contained = provided.0.intersection_c(bf_item).bits_c() != 0;
                 if contained {
                     return Some(item);
                 }
@@ -80,5 +82,30 @@ impl DataKindPreference {
         }
 
         None
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+    #[test]
+    fn test_top_missing() {
+        let pref: DataKindPreference = DataKindPreference::from_slice(&[DataKind::Parsed]);
+        let provided = DataKinds::from_slice(&[DataKind::Str]);
+        assert_eq!(pref.top(provided), None);
+    }
+
+    #[test]
+    fn test_top_best() {
+        let pref = DataKindPreference::PARSED_PREF;
+        let provided = DataKinds::from_slice(&[DataKind::Parsed, DataKind::Bytes, DataKind::Str]);
+        assert_eq!(pref.top(provided), Some(DataKind::Parsed));
+    }
+
+    #[test]
+    fn test_top_worst() {
+        let pref = DataKindPreference::PARSED_PREF;
+        let provided = DataKinds::from_slice(&[DataKind::Bytes, DataKind::Str]);
+        assert_eq!(pref.top(provided), Some(DataKind::Str));
     }
 }

@@ -1,9 +1,10 @@
 [package]
 name = "http_data"
-version = "0.9.1"
+version = "0.10.0"
 description = "Traits for retrieving http data"
+repoository = "https://github.com/estk/http_data"
 license = "MIT"
-edition = "2021"
+edition = "2024"
 
 [dependencies]
 bytes = "1.10.1"

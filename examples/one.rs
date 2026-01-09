@@ -64,7 +64,7 @@ impl RequestDataProvider for ReqWrap<'_> {
     const HEADER_KINDS: DataKinds = DataKinds::from_slice(&[DataKind::Str, DataKind::Bytes]);
     const METHOD_KINDS: DataKinds = DataKinds::from_slice(&[DataKind::Str, DataKind::Bytes]);
 
-    fn provide_method(&self, dk: DataKind) -> Option<MethodData> {
+    fn provide_method(&self, dk: DataKind) -> Option<MethodData<'_>> {
         match dk {
             DataKind::Str => {
                 let m = Method::<str>::method(self);
@@ -161,18 +161,24 @@ fn main() {
 
     dbg!(method);
     let mut headers: Vec<(String, String)> = vec![];
-    if let Some(HeaderData::Str(hs)) = req.provide_headers(DataKind::Str) {
-        for (name, value) in hs {
-            headers.push((name.to_string(), value.to_string()));
+    match req.provide_headers(DataKind::Str) {
+        Some(HeaderData::Str(hs)) => {
+            for (name, value) in hs {
+                headers.push((name.to_string(), value.to_string()));
+            }
         }
-    } else if let Some(HeaderData::Bytes(hs)) = req.provide_headers(DataKind::Bytes) {
-        for (name, value) in hs {
-            let name = String::from_utf8_lossy(name).to_string();
-            let value = String::from_utf8_lossy(value).to_string();
-            headers.push((name, value));
-        }
-    } else {
-        panic!("Unsupported headers");
+        _ => match req.provide_headers(DataKind::Bytes) {
+            Some(HeaderData::Bytes(hs)) => {
+                for (name, value) in hs {
+                    let name = String::from_utf8_lossy(name).to_string();
+                    let value = String::from_utf8_lossy(value).to_string();
+                    headers.push((name, value));
+                }
+            }
+            _ => {
+                panic!("Unsupported headers");
+            }
+        },
     }
 
     dbg!(headers);

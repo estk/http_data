@@ -1,5 +1,7 @@
 use std::time;
 
+use bytes::Buf;
+
 use crate::data_kinds::{DataKind, DataKindPreference, DataKinds};
 use crate::{HeaderData, HttpVersion, MethodData, SocketPairData, Status, TlsVersion, UriData};
 
@@ -8,7 +10,7 @@ pub trait ResponseDataProvider {
 
     fn status(&self) -> Option<Status>;
     fn time_sent(&self) -> Option<time::SystemTime>;
-    fn body(&self) -> Option<impl http_body::Body + Send + Sync>;
+    fn body(&self) -> Option<impl http_body::Body<Data = impl Send + Buf> + Send>;
 
     fn provide_headers(&self, dk: DataKind) -> Option<HeaderData<'_>>;
 
@@ -39,7 +41,7 @@ pub trait RequestDataProvider {
 
     fn time_received(&self) -> Option<time::SystemTime>;
     fn http_version(&self) -> Option<HttpVersion>;
-    fn body(&self) -> Option<impl http_body::Body + Send + Sync>;
+    fn body(&self) -> Option<impl http_body::Body<Data = impl Send + Buf> + Send>;
 
     // I think these should be possible to auto-implement
     fn provide_method(&self, dk: DataKind) -> Option<MethodData<'_>>;
